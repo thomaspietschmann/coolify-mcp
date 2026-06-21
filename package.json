@@ -1,0 +1,44 @@
+{
+  "name": "coolify-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Coolify — read, write and deploy without exposing the API token to the LLM.",
+  "author": "Thomas Pietschmann (https://github.com/thomaspietschmann)",
+  "license": "MIT",
+  "keywords": ["coolify", "mcp", "model-context-protocol", "paas", "deployment"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomaspietschmann/coolify-mcp.git"
+  },
+  "homepage": "https://github.com/thomaspietschmann/coolify-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/thomaspietschmann/coolify-mcp/issues"
+  },
+  "type": "module",
+  "bin": {
+    "coolify-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "openapi.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "update:api": "node scripts/update-openapi.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
