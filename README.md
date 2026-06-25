@@ -211,7 +211,7 @@ Typical flow: `coolify_api_overview` → `coolify_api_endpoint` → `coolify_mut
 ## Tool overview
 
 **Read (any time):**
-`coolify_version`, `coolify_health`, `list_teams`, `get_current_team`, `list_private_keys`,
+`coolify_version`, `coolify_health`, `list_teams`, `get_current_team`, `list_private_keys` (private key material redacted),
 `list_projects`, `get_project`, `list_servers`, `get_server`, `get_server_resources`,
 `list_resources`, `list_applications`, `get_application`, `list_application_envs`,
 `list_databases`, `get_database`, `list_services`, `get_service`, `list_deployments`,
@@ -229,9 +229,15 @@ Typical flow: `coolify_api_overview` → `coolify_api_endpoint` → `coolify_mut
 
 1. **Token isolation:** the API token lives only in the server process (from the MCP `env`
    block). It never appears in the LLM context, in prompts, or in tool arguments.
-2. **Global switch:** `COOLIFY_ALLOW_MUTATIONS=false` disables *all* write tools.
-3. **Confirm gate:** every write action requires `confirm: true`; otherwise just a preview.
-4. **Client prompt:** destructive tools are marked via the MCP `destructiveHint`, so the
+2. **Secret redaction:** every API response is passed through a central redactor before it
+   reaches the model. Secret-bearing fields — `private_key`, `*_password`, `*_secret*`,
+   `*_token`, log-drain API keys, `internal_db_url`/`external_db_url` — are replaced with
+   `"[redacted]"`, and SSH private keys embedded in deployment logs (raw PEM **and** their
+   base64 encoding) are scrubbed. Non-secret data is kept, and **environment-variable values
+   stay readable** (`value` / `real_value`) since managing env vars is an explicit purpose.
+3. **Global switch:** `COOLIFY_ALLOW_MUTATIONS=false` disables *all* write tools.
+4. **Confirm gate:** every write action requires `confirm: true`; otherwise just a preview.
+5. **Client prompt:** destructive tools are marked via the MCP `destructiveHint`, so the
    client additionally shows its own confirmation dialog.
 
 ## Troubleshooting

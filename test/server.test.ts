@@ -86,6 +86,32 @@ test("read tools always call the API", async () => {
   assert.ok(!res.isError);
 });
 
+test("list_private_keys redacts the private_key field", async () => {
+  const client = await connect();
+  // Override the global stub to return a realistic private-key response.
+  globalThis.fetch = (async (_url: any, _init: any) => {
+    return new Response(
+      JSON.stringify([
+        {
+          uuid: "pk-uuid-1",
+          name: "deploy-key",
+          private_key: "-----BEGIN OPENSSH PRIVATE KEY-----\nABCD1234\n-----END OPENSSH PRIVATE KEY-----",
+          public_key: "ssh-ed25519 AAAA...",
+          fingerprint: "SHA256:abc123",
+        },
+      ]),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  }) as any;
+
+  const res = await client.callTool({ name: "list_private_keys", arguments: {} });
+  const body = textOf(res);
+  assert.ok(!res.isError, "should not be an error");
+  assert.ok(!body.includes("BEGIN OPENSSH"), "raw private key must not appear in output");
+  assert.ok(body.includes("[redacted]"), "redaction marker must be present");
+  assert.ok(body.includes("SHA256:abc123"), "fingerprint must survive redaction");
+});
+
 test("the documentation tools are available and read-only (no API call)", async () => {
   const client = await connect();
   const list = await client.listTools();

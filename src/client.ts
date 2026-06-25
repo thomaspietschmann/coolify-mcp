@@ -1,4 +1,5 @@
 import type { Config } from "./config.js";
+import { redactSecrets } from "./redact.js";
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -80,6 +81,10 @@ export class CoolifyClient {
         data = text;
       }
     }
+
+    // Strip secret material before it can reach the LLM — applies to success
+    // and error bodies alike, and thus to every tool incl. the escape hatches.
+    data = redactSecrets(data);
 
     if (!res.ok) throw new CoolifyError(res.status, data);
     return data as T;

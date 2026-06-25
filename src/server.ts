@@ -34,7 +34,7 @@ export function buildServer(cfg: Config): McpServer {
 
   const server = new McpServer({
     name: "coolify-mcp",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   /** Register a read-only tool. */
@@ -42,7 +42,7 @@ export function buildServer(cfg: Config): McpServer {
     name: string,
     description: string,
     inputSchema: S,
-    handler: (args: z.objectOutputType<S, z.ZodTypeAny>) => Promise<unknown>,
+    handler: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>,
   ) {
     server.registerTool(
       name,
@@ -71,7 +71,7 @@ export function buildServer(cfg: Config): McpServer {
     description: string,
     inputSchema: S,
     opts: { destructive?: boolean; preview: (args: any) => string },
-    handler: (args: z.objectOutputType<S, z.ZodTypeAny>) => Promise<unknown>,
+    handler: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>,
   ) {
     server.registerTool(
       name,
@@ -134,7 +134,9 @@ export function buildServer(cfg: Config): McpServer {
   );
   readTool(
     "list_private_keys",
-    "Lists the SSH private keys stored in Coolify (without secret contents).",
+    "Lists the SSH private keys stored in Coolify. Secret key material is redacted " +
+      "by the server (see the global redaction), so only metadata, fingerprints and " +
+      "public keys reach the model.",
     {},
     () => client.get("/security/keys"),
   );
@@ -271,7 +273,7 @@ export function buildServer(cfg: Config): McpServer {
     {
       uuid: z.string().describe("Application UUID"),
       settings: z
-        .record(z.any())
+        .record(z.string(), z.any())
         .describe(
           "Fields to change, e.g. { git_branch, ports_exposes, build_pack, instant_deploy, ... }.",
         ),
@@ -391,7 +393,7 @@ export function buildServer(cfg: Config): McpServer {
         .describe("Build pack type"),
       ports_exposes: z.string().describe("Exposed ports, e.g. '3000'"),
       extra: z
-        .record(z.any())
+        .record(z.string(), z.any())
         .optional()
         .describe("Further optional fields per the Coolify API (e.g. instant_deploy, name)."),
     },
@@ -416,7 +418,7 @@ export function buildServer(cfg: Config): McpServer {
       docker_registry_image_name: z.string().describe("Image name, e.g. 'nginx'"),
       docker_registry_image_tag: z.string().optional().describe("Tag, e.g. 'latest'"),
       ports_exposes: z.string().describe("Exposed ports, e.g. '80'"),
-      extra: z.record(z.any()).optional().describe("Further optional fields per the Coolify API."),
+      extra: z.record(z.string(), z.any()).optional().describe("Further optional fields per the Coolify API."),
     },
     {
       destructive: false,
@@ -474,7 +476,10 @@ export function buildServer(cfg: Config): McpServer {
       "dedicated tool. Discover paths with coolify_api_overview / coolify_api_endpoint.",
     {
       path: z.string().describe("Path relative to /api/v1, e.g. '/applications' or '/servers/<uuid>'"),
-      query: z.record(z.string()).optional().describe("Optional query parameters."),
+      query: z
+        .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+        .optional()
+        .describe("Optional query parameters."),
     },
     (a) => client.get(a.path, a.query),
   );
@@ -486,7 +491,7 @@ export function buildServer(cfg: Config): McpServer {
     {
       method: z.enum(["POST", "PATCH", "PUT", "DELETE"]).describe("HTTP method"),
       path: z.string().describe("Path relative to /api/v1"),
-      body: z.record(z.any()).optional().describe("JSON request body"),
+      body: z.record(z.string(), z.any()).optional().describe("JSON request body"),
     },
     {
       destructive: true,
@@ -500,9 +505,10 @@ export function buildServer(cfg: Config): McpServer {
 
 function describeError(err: unknown): string {
   if (err instanceof CoolifyError) {
-    return `Coolify error (HTTP ${err.status}): ${
-      typeof err.body === "string" ? err.body : JSON.stringify(err.body, null, 2)
-    }`;
+    const body = typeof err.body === "string" ? err.body : JSON.stringify(err.body, null, 2);
+    // status 0 means a network/timeout failure, not an HTTP response code.
+    if (err.status === 0) return `Coolify request failed: ${body}`;
+    return `Coolify error (HTTP ${err.status}): ${body}`;
   }
   return `Unexpected error: ${err instanceof Error ? err.message : String(err)}`;
 }
